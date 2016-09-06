@@ -3,31 +3,64 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"image"
+	"image/color"
+	"image/gif"
+	"io"
 	"io/ioutil"
+	"math"
 	"math/rand"
 	"os"
 	"strconv"
 	"strings"
 	"time"
-	"image"
-	"image/color"
 )
 
 func main() {
 	Test5()
 }
 
+var palette = []color.Color{color.White, color.Black}
 
-var pal = []
+const (
+	whiteIndex = 0 // first color in palette
+	blackIndex = 1 // next color in palette
+)
 
-//测试gif动画生成
+//测试gif动画生成  $ go run test.go > test.gif
 func Test5() {
 	//获取19位时间戳  ,纳秒数
-	i := time.Now().UTC().UnixNano()
 	//将纳秒数当作种子，种子的作用就好象一个key，使用同一个种子得到的随机数永远是一样的，计算速度根据服务器配置有关系，计算机1纳秒15次左右
-	rand.Seed(i)
-	fmt.Println(rand.Int31n(10))
-	fmt.Println(os.Stdout)
+	rand.Seed(time.Now().UTC().UnixNano())
+	lissajous(os.Stdout)
+}
+
+func lissajous(out io.Writer) {
+	const (
+		cycles  = 5     // number of complete x oscillator revolutions
+		res     = 0.001 // angular resolution
+		size    = 100   // image canvas covers [-size..+size]
+		nframes = 64    // number of animation frames
+		delay   = 8     // delay between frames in 10ms units
+	)
+
+	freq := rand.Float64() * 3.0 // relative frequency of y oscillator
+	anim := gif.GIF{LoopCount: nframes}
+	phase := 0.0 // phase difference
+	for i := 0; i < nframes; i++ {
+		rect := image.Rect(0, 0, 2*size+1, 2*size+1)
+		img := image.NewPaletted(rect, palette)
+		for t := 0.0; t < cycles*2*math.Pi; t += res {
+			x := math.Sin(t)
+			y := math.Sin(t*freq + phase)
+			img.SetColorIndex(size+int(x*size+0.5), size+int(y*size+0.5),
+				blackIndex)
+		}
+		phase += 0.1
+		anim.Delay = append(anim.Delay, delay)
+		anim.Image = append(anim.Image, img)
+	}
+	gif.EncodeAll(out, &anim) // NOTE: ignoring encoding errors
 }
 
 //使用ReadFile函数读取文件全部内容
