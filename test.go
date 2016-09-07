@@ -8,23 +8,184 @@ import (
 	"image/gif"
 	"io"
 	"io/ioutil"
+	"log"
 	"math"
 	"math/rand"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 func main() {
-	Test5()
+	Test9()
 }
 
-var palette = []color.Color{color.White, color.Black}
+//测试web服务器：监听8080端口，用户访问/count则执行counter函数，访问/image则执行getimage，否则执行handlers函数
+func Test9() {
+	http.HandleFunc("/", handlers)
+	http.HandleFunc("/count", counter)
+	http.HandleFunc("/image", getimage)
+	log.Fatal(http.ListenAndServe("localhost:8080", nil))
+}
+
+var mp = make(map[string]int)
+
+//为了防止并发导致计数错误我们需要一个同步锁
+var mu sync.Mutex
+
+func getimage(w http.ResponseWriter, r *http.Request) {
+	var cyc float64
+	//解析URL参数，如果不解析r.Form里面是没有值的
+	if err := r.ParseForm(); err != nil {
+		log.Print(err)
+	}
+	for k, v := range r.Form {
+		if k == "cyc" && len(v) > 0 {
+			i, err := strconv.ParseFloat(v[0], 32)
+			if err != nil {
+				fmt.Fprintf(w, "错误：%s不可以转换为int", v)
+				return
+			}
+			if i > 20 {
+				fmt.Fprintf(w, "错误：请修改您的参数。cyc不可以大于20")
+				return
+			}
+			cyc = i
+		}
+	}
+	lissajous(w, cyc)
+}
+
+func handlers(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path
+	fmt.Println(path)
+	mu.Lock()
+	mp[path]++
+	mu.Unlock()
+	for k, v := range r.Header {
+		//读取参数
+		fmt.Fprintln(w, k, v)
+	}
+	fmt.Fprintf(w, "当前url被访问了%d次\n", mp[path])
+	fmt.Fprintln(w, r.Method, r.URL, r.Proto)
+	fmt.Fprintf(w, "访问地址的Host是:%s，RemoteAddr是%s\n", r.Host, r.RemoteAddr)
+	if err := r.ParseForm(); err != nil {
+		log.Print(err)
+	}
+	for k, v := range r.Form {
+		//读取参数
+		fmt.Fprintln(w, k, v)
+	}
+
+}
+
+func counter(w http.ResponseWriter, r *http.Request) {
+	mu.Lock()
+	fmt.Fprintf(w, "当前访问的次数统计为：\n")
+	for k, v := range mp {
+		fmt.Fprintf(w, "URL：%s 被访问了%d次\n", k, v)
+	}
+	mu.Unlock()
+
+}
+
+//测试go协程用法：获取多个url的请求时间
+func Test8() {
+	start := time.Now()
+	//创建一个string类型的通道，只有通道类型chan才可以在协程之间通信
+	ch := make(chan string)
+	for _, url := range os.Args[1:] {
+		bl := strings.HasPrefix(url, `http://`)
+		if !bl {
+			url = `http://` + url
+		}
+		go rurl(url, ch)
+	}
+	//用法等同于 _,_ := range os.Args[1:]
+	for range os.Args[1:] {
+		//代码执行到这里会判断是否有goroutine对通道做send或receive操作，有的话代码就会阻塞在这里，
+		//等待goroutine的操作
+		fmt.Println(<-ch)
+	}
+	end := time.Since(start).Seconds()
+	fmt.Printf("程序运行总时长%f秒", end)
+}
+
+func rurl(url string, ch chan<- string) {
+	//得到当前时间
+	start := time.Now()
+	txt, err := http.Get(url)
+	if err != nil {
+		ch <- fmt.Sprintf("错误的URL：%s,请求访问不到:%s", url, err)
+		return
+	}
+	//ioutil.Discard 可以把这个当成一个垃圾桶，不需要输出的话就用这个。
+	by, err2 := io.Copy(ioutil.Discard, txt.Body)
+	txt.Body.Close()
+	if err2 != nil {
+		ch <- fmt.Sprintf("错误的URL：%s,无法读取:%s", url, err)
+		return
+	}
+	ti := time.Since(start).Seconds()
+	ch <- fmt.Sprintf("URL：%s 访问用时：%f 秒，字节数%d", url, ti, by)
+}
+
+//改用io.Copy方式获取
+func Test7() {
+	for _, urlstr := range os.Args[1:] {
+		//如果没有http://自动不全
+		bl := strings.HasPrefix(urlstr, `http://`)
+		if !bl {
+			urlstr = `http://` + urlstr
+		}
+		txt, err := http.Get(urlstr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error：%v\n", err)
+			//终止进程，并且返回错误代码1
+			os.Exit(1)
+		}
+		_, err2 := io.Copy(os.Stdout, txt.Body)
+		//打印状态码
+		fmt.Printf("txt.Status:%s\n", txt.Status)
+		//防止资源泄漏得到数据后需要关闭
+		txt.Body.Close()
+		if err2 != nil {
+			fmt.Fprintf(os.Stderr, "URL：%s ,Error : %v\n", urlstr, err2)
+			//终止进程，并且返回错误代码1
+			os.Exit(1)
+		}
+	}
+}
+
+//测试访问url
+func Test6() {
+	for _, urlstr := range os.Args[1:] {
+		txt, err := http.Get(urlstr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error：%v\n", err)
+			//终止进程，并且返回错误代码1
+			os.Exit(1)
+		}
+		b, err := ioutil.ReadAll(txt.Body)
+		//防止资源泄漏得到数据后需要关闭
+		txt.Body.Close()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "URL：%s ,Error : %v\n", urlstr, err)
+			//终止进程，并且返回错误代码1
+			os.Exit(1)
+		}
+		fmt.Printf("%s", b)
+	}
+}
+
+var palette = []color.Color{color.White, color.RGBA{0x00, 0xFF, 0x00, 0xff}, color.RGBA{0xFF, 0x00, 0x00, 0xff}, color.RGBA{0x00, 0x00, 0xFF, 0xff}}
 
 const (
 	whiteIndex = 0 // first color in palette
-	blackIndex = 1 // next color in palette
+	blackIndex = 3 // next color in palette
 )
 
 //测试gif动画生成  $ go run test.go > test.gif
@@ -32,10 +193,10 @@ func Test5() {
 	//获取19位时间戳  ,纳秒数
 	//将纳秒数当作种子，种子的作用就好象一个key，使用同一个种子得到的随机数永远是一样的，计算速度根据服务器配置有关系，计算机1纳秒15次左右
 	rand.Seed(time.Now().UTC().UnixNano())
-	lissajous(os.Stdout)
+	lissajous(os.Stdout, 5)
 }
 
-func lissajous(out io.Writer) {
+func lissajous(out io.Writer, cyc float64) {
 	const (
 		cycles  = 5     // number of complete x oscillator revolutions
 		res     = 0.001 // angular resolution
@@ -50,7 +211,11 @@ func lissajous(out io.Writer) {
 	for i := 0; i < nframes; i++ {
 		rect := image.Rect(0, 0, 2*size+1, 2*size+1)
 		img := image.NewPaletted(rect, palette)
-		for t := 0.0; t < cycles*2*math.Pi; t += res {
+		tmp := float64(cycles)
+		if cyc > 0 {
+			tmp = cyc
+		}
+		for t := 0.0; t < tmp*2*math.Pi; t += res {
 			x := math.Sin(t)
 			y := math.Sin(t*freq + phase)
 			img.SetColorIndex(size+int(x*size+0.5), size+int(y*size+0.5),
