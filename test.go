@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"image"
 	"image/color"
@@ -20,7 +21,31 @@ import (
 )
 
 func main() {
-	Test9()
+	Test11()
+}
+
+//测试匿名变量内建函数new,默认得到的是内存地址（指针），默认值是0
+//与p := *int 有区别，这样创建的只是指针类型，默认值是nil
+//与var p int  &p 没有区别
+func Test11() {
+	p := new(int)
+	fmt.Println(p, *p)
+	var s int
+	fmt.Println(&s, s)
+}
+
+var n = flag.Bool("n", false, "omit trailing newline")
+var sep = flag.String("s", " ", "separator")
+
+//实现一个读取命令行参数并连接参数 -s [joinString] [params...]
+//-n 为忽略末尾换行，命令行测试不出来
+func Test10() {
+	//读取命令行参数用于自定义参数类型（-s/-n）
+	flag.Parse()
+	fmt.Print(strings.Join(flag.Args(), *sep))
+	if !*n {
+		fmt.Println()
+	}
 }
 
 //测试web服务器：监听8080端口，用户访问/count则执行counter函数，访问/image则执行getimage，否则执行handlers函数
