@@ -12,7 +12,37 @@ import (
 )
 
 func main() {
-	Test9()
+	Test11()
+}
+
+func Test11() {
+	sz := [3]int{0, 1, 2}
+	sc := []int{0, 1, 2, 3}
+	fmt.Println(&sz[0], &sc[0])
+	fmt.Println(sz[0] == sc[0])
+	str := "你好，世界！"
+	sc2 := []rune(str)
+	fmt.Println(sc2)
+	fmt.Printf("%q\n", sc2)
+	var x, y []int
+	for i := 0; i < 10; i++ {
+		y = append(x, i)
+		fmt.Printf("%d cap=%d\t%v\n", i, cap(y), y)
+		x = y
+	}
+}
+
+//测试数组与slice的区别
+//用数组部分元素生成的slice默认容量是开始位到数组结束
+func Test10() {
+	//定义数组
+	sz := [...]int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13}
+	sc := sz[2:5]
+	fmt.Println(sz, cap(sz))
+	fmt.Println(sc, cap(sc))
+	fmt.Printf("sz=%T,sc=%T\n", sz, sc)
+	sc = append(sc, 1, 2, 3, 4)
+	fmt.Println(sc, cap(sc))
 }
 
 //练习 4.1： 编写一个函数，计算两个SHA256哈希码中不同bit的数目。（参考2.6.2节的PopCount函数。)
@@ -27,6 +57,7 @@ func Test9() {
 			mp[i] = cs2
 		}
 		var i int
+		//性能太低，应该有更优的方法
 		for _, cs1 := range c1 {
 			for k, v := range mp {
 				if cs1 == v {
