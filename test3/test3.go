@@ -70,10 +70,3 @@ func Test6() {
 		fmt.Println(strs[i])
 	}
 }
-
-func Test7() {
-	var fl float32
-	fl = 16777216
-
-	fmt.Println(fl + 1)
-}
