@@ -16,6 +16,11 @@ func main() {
 	Test16()
 }
 
+//这是map的另一个例子，下面的程序用于统计输入中每个Unicode码点出现的次数。
+//虽然Unicode全部码点的数量巨大，但是出现在特定文档中的字符种类并没有多少，
+//使用map可以用比较自然的方式来跟踪那些出现过字符的次数。
+//gopl.io/ch4/charcount
+
 //测试创建一个mao
 func Test16() {
 	mp := map[string]int{
