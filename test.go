@@ -6,13 +6,136 @@ import (
 	"fmt"
 	"math"
 	"path/filepath"
+	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 )
 
 func main() {
-	Test11()
+	Test16()
+}
+
+//测试创建一个mao
+func Test16() {
+	mp := map[string]int{
+		"a": 1,
+		"b": 2,
+	}
+	fmt.Println(mp)
+	mp2 := map[string]bool{
+		"a": true,
+		"b": false,
+	}
+	if !mp2["b"] {
+		fmt.Println(mp2["a"])
+	}
+
+	str := []string{"asd", "qwe", "11qwe", "bb22"}
+	fmt.Println(str)
+	//对slice排序（Ascll）
+	sort.Strings(str)
+	fmt.Println(str)
+}
+
+//将多个空格替换为1个空格
+func Test15() {
+	str := "你好，     世界！"
+	by2 := []byte(str)
+	for i := 0; i < len(by2)-1; i++ {
+		if uint32(by2[i]) <= unicode.MaxLatin1 {
+			if by2[i] == ' ' && by2[i+1] == ' ' {
+				copy(by2[i:], by2[i+1:])
+				by2 = by2[:len(by2)-1]
+				i--
+			}
+		}
+	}
+	str2 := string(by2)
+	fmt.Println(str2)
+	by := []rune(str)
+	for i, j := 0, len(by)-1; i < j; i, j = i+1, j-1 {
+		by[i], by[j] = by[j], by[i]
+	}
+	for i := 0; i < len(by)-1; i++ {
+		if unicode.IsSpace(by[i]) && unicode.IsSpace(by[i+1]) {
+			copy(by[i:], by[i+1:])
+			by = by[:len(by)-1]
+			i--
+		}
+	}
+	str = string(by)
+	fmt.Println(str)
+
+}
+
+//消除相邻的两个元素重复的字符串
+func Test14() {
+	str := []string{"aa", "bb", "cc", "dd", "dd", "ee", "ff", "ff"}
+	str = func() []string {
+		for i := 0; i < len(str)-1; i++ {
+			if str[i] == str[i+1] {
+				str[i], str[i+1] = "", ""
+				i++
+			}
+		}
+		return str
+	}()
+	fmt.Println(str)
+}
+
+//数组指针的反转函数,数组指针指向第一个元素的指针
+func Test13() {
+	s1 := []int{1, 2, 3, 4, 5}
+	rotate(s1, 5)
+}
+
+func rotate(s []int, i int) {
+	for x := 0; x < i; x++ {
+		//s[4], s[:4] = s[0], s[1:5]
+		s = append(s[1:len(s)], s[0])
+	}
+	fmt.Println(s)
+	// tmp := []int{}
+	// tmp = s[:i]
+	// s[:len(s)-i] = s[i:]
+}
+
+func reverse(s *[5]int) {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
+}
+
+//测试函数是否会改变slice的值
+func Test12() {
+	str := []string{2: "aaa", 5: "bbb", 11: "ccc"}
+	fmt.Println(str, len(str))
+	fmt.Println(getNotNil2(str))
+	fmt.Println(str, len(str))
+}
+
+//会覆盖
+func getNotNil(str []string) []string {
+	i := 0
+	for _, s := range str {
+		if s != "" {
+			str[i] = s
+			i++
+		}
+	}
+	return str[:i]
+}
+
+//不会
+func getNotNil2(str []string) []string {
+	str2 := str[:0]
+	for _, s := range str {
+		if s != "" {
+			str2 = append(str2, s)
+		}
+	}
+	return str2
 }
 
 func Test11() {
