@@ -2,17 +2,6 @@ package main
 
 import "fmt"
 
-func main() {
-	var mp map[int]interface{} = make(map[int]interface{})
-	mp[1] = 9
-	mp[3] = "22"
-	mp[5] = []string{"asdasd", "dsdwq"}
-	fmt.Println(mp)
-	str := "你好，世界zz"
-	runes := []rune(str)
-	fmt.Println(len(str), len(runes))
-}
-
 func Test1() {
 	values := []int{9, 3, 4, 1, 2, 34, 7, 212}
 	Sort(values)
@@ -68,4 +57,28 @@ func add(t *tree, v int) *tree {
 		t.max = add(t.max, v)
 	}
 	return t
+}
+
+type Ponit struct {
+	X, Y int
+}
+
+type Circle struct {
+	Ponit
+	Radius int
+}
+
+type Wheel struct {
+	Circle
+	Spokes int
+}
+
+func Test2() {
+	var w Wheel
+	w = Wheel{Circle: Circle{Ponit: Ponit{X: 9, Y: 8}, Radius: 7}, Spokes: 6}
+	fmt.Printf("%#v\n", w)
+}
+
+func main() {
+	Test2()
 }
