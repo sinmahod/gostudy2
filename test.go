@@ -1,6 +1,10 @@
 package main
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+)
 
 func Test1() {
 	values := []int{9, 3, 4, 1, 2, 34, 7, 212}
@@ -79,6 +83,31 @@ func Test2() {
 	fmt.Printf("%#v\n", w)
 }
 
+//测试JSON
+type Data struct {
+	//变量名大写才能导出
+	Content string `json:"content"` //类似别名
+	Index   int    `json:"index"`
+	Key     []string
+}
+
+func Test3() {
+	var data = Data{"这是一个json练习", 999, []string{"一", "二", "三"}}
+
+	//紧凑化json
+	if json, err := json.Marshal(data); err != nil {
+		log.Fatalf("%s\n", err)
+	} else {
+		fmt.Printf("%s\n", json)
+	}
+	//格式化json，前缀与每一行的缩进
+	if json, err := json.MarshalIndent(data, "", "	"); err != nil {
+		log.Fatalf("%s\n", err)
+	} else {
+		fmt.Printf("%s\n", json)
+	}
+}
+
 func main() {
-	Test2()
+	Test3()
 }
