@@ -3,7 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
+	"net/url"
+	"os"
+	"strings"
 )
 
 func Test1() {
@@ -86,13 +91,13 @@ func Test2() {
 //测试JSON
 type Data struct {
 	//变量名大写才能导出
-	Content string `json:"content"` //类似别名
-	Index   int    `json:"index"`
-	Key     []string
+	Content string   `json:"content"` //类似别名
+	Index   int      `json:"index"`
+	Key     []string `json:"key,omitempty"` //omitempty选项表示为空值是不输出
 }
 
 func Test3() {
-	var data = Data{"这是一个json练习", 999, []string{"一", "二", "三"}}
+	var data = []Data{{Content: "这是一个json练习", Index: 999, Key: []string{"一", "二", "三"}}, {Content: "这是一个json练习", Index: 999}}
 
 	//紧凑化json
 	if json, err := json.Marshal(data); err != nil {
@@ -108,6 +113,60 @@ func Test3() {
 	}
 }
 
+type IssuesSearchResult struct {
+	Total_count        int    `json:"total_count"`
+	Incomplete_results bool   `json:"incomplete_results"`
+	Sssdf              string `json:"sssdf"`
+}
+
+//测试json解码
+func Test4() {
+
+	geturl := "https://api.github.com/search/issues"
+	str := os.Args[1:]                           //repo:golang/go is:open json decoder
+	q := url.QueryEscape(strings.Join(str, " ")) //decode参数
+	resp, err := http.Get(geturl + "?q=" + q)
+	if err != nil { //https://api.github.com/search/issues?q=repo%3Agolang%2Fgo+is%3Aopen+json+decoder
+		log.Fatalf("%s\n", err)
+	}
+	if resp.StatusCode != http.StatusOK { //200
+		resp.Body.Close()
+		fmt.Errorf("search query failed: %s", resp.Status)
+		return
+	}
+
+	//打印内容
+	if body, err := ioutil.ReadAll(resp.Body); err != nil {
+		fmt.Errorf("%s", err)
+		return
+	} else {
+		var v struct {
+			Total_count int `json:"total_count"`
+		}
+		if err := json.Unmarshal(body, &v); err != nil {
+			fmt.Errorf("%s", err)
+		}
+		fmt.Println(v)
+	}
+
+	var result IssuesSearchResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		resp.Body.Close()
+		fmt.Errorf("search query failed: %s", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	fmt.Printf("%d\n", result.Total_count)
+	fmt.Printf("%b\n", result.Incomplete_results)
+	fmt.Printf("%s\n", result.Sssdf)
+	fmt.Println(result)
+
+	//for _, item := range result.Items {
+	//	fmt.Printf("#%-5d %9.9s %.55s\n", item.Number, item.User.Login, item.Title)
+	//}
+}
+
 func main() {
-	Test3()
+	Test4()
 }
