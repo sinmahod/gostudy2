@@ -3,12 +3,16 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+	"time"
+
+	"golang.org/x/net/html"
 )
 
 func Test1() {
@@ -167,6 +171,175 @@ func Test4() {
 	//}
 }
 
+//测试模板
+type Html struct {
+	TotalCount int
+	Items      []Issc
+}
+
+type Issc struct {
+	Number    int
+	User      *User
+	Title     string
+	CreatedAt time.Time
+	Test      template.HTML
+}
+
+type User struct {
+	Login bool
+}
+
+const templ = `<html><title>测试</title><body>{{.TotalCount}} issues:
+	{{range .Items}}----------------------------------------
+	Number: {{.Number}}
+	<h2>User:   {{.User.Login}}</h2>
+	<hr/>Title:  {{.Title | printf "%.64s"}}
+	<h1>Age:    {{.CreatedAt | daysAgo}} days</h1>
+	<h1>Test:    {{.Test}} </h1>
+	{{end}}</body></html>`
+
+func daysAgo(t time.Time) int {
+	return int(time.Since(t).Hours() / 24)
+}
+
+func Test5(w http.ResponseWriter, r *http.Request) {
+	text := template.Must(template.New("test").
+		Funcs(template.FuncMap{"daysAgo": daysAgo}). //注册函数
+		Parse(templ))                                //放入模板
+
+	t1, _ := time.Parse("2016-08-08 20:47:19", "2015-06-06 20:47:19")
+	t2, _ := time.Parse("2016-06-06 20:47:19", "2015-06-06 20:47:19")
+	isr := Html{TotalCount: 10, Items: []Issc{
+		{
+			Number: 5,
+			User: &User{
+				Login: false,
+			},
+			Title:     "<b>test1</b>",
+			CreatedAt: t1,
+			Test:      "<b>test1<b>",
+		}, {
+			Number: 6,
+			User: &User{
+				Login: true,
+			},
+			Title:     "test2",
+			CreatedAt: t2,
+			Test:      "<b>test2<b>",
+		},
+	},
+	}
+	text.Execute(w, isr)
+
+	//method main
+	//http.HandleFunc("/", Test5)
+	//http.ListenAndServe("localhost:8080", nil)
+}
+
+//遍历所有A标签打印所有链接
+func Test6() {
+	if file, err := os.Open("index.html"); err == nil {
+		if doc, err := html.Parse(file); err == nil {
+			visit2(nil, doc)
+		}
+	}
+	//测试URL
+	// if resp, err := http.Get("http://www.baidu.com/"); err == nil {
+	// 	if doc, err := html.Parse(resp.Body); err == nil {
+	// 		//parseHtml(doc)
+	// 		for i, s := range visit2(nil, doc) {
+	// 			fmt.Println(i, s)
+	// 		}
+	// 	}
+	// 	defer resp.Body.Close()
+	// }
+}
+
+func visit2(links []string, n *html.Node) []string {
+	if n.Type == html.ElementNode {
+		fmt.Println(n.Data)
+		// for _, a := range n.Attr {
+		// 	if a.Key == "href" {
+		// 		links = append(links, a.Val)
+		// 	}
+		// }
+	}
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		links = visit(links, c)
+	}
+	return links
+}
+
+func visit(links []string, n *html.Node) []string {
+
+	c := n
+	for c != nil {
+		if c.Type == html.ElementNode {
+			fmt.Println(n.Data)
+			// for _, a := range c.Attr {
+			// 	if a.Key == "href" {
+			// 		links = append(links, a.Val)
+			// 	}
+			// }
+		}
+		c = c.NextSibling
+	}
+
+	if n.FirstChild != nil {
+		links = visit(links, n.FirstChild)
+	} else if n.NextSibling != nil {
+		links = visit(links, n.NextSibling)
+	}
+
+	return links
+}
+
+func visit3(links []string, n *html.Node) []string {
+	if n == nil {
+		return nil
+	}
+	if n.Type == html.ElementNode {
+		fmt.Println(n.Data)
+		// for _, a := range n.Attr {
+		// 	if a.Key == "href" {
+		// 		links = append(links, a.Val)
+		// 	}
+		// }
+	}
+	visit(links, n.NextSibling)
+	visit(links, n.FirstChild)
+	// links = visit(links, c)
+	// for c := n.FirstChild; c != nil; c = c.NextSibling {
+	// 	links = visit(links, c)
+	// }
+	return links
+}
+
+func parseHtml(n *html.Node) {
+	if n.Type == html.ElementNode {
+		if n.Data == `a` {
+			for _, a := range n.Attr {
+				if a.Key == `href` && strings.HasPrefix(a.Val, "http:") {
+					fmt.Println("+", a.Val, "+")
+				}
+			}
+		}
+	}
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		parseHtml(c)
+	}
+}
+
+func outline(stack []string, n *html.Node) {
+	if n.Type == html.ElementNode {
+		stack = append(stack, n.Data) // push tag
+		fmt.Println(stack)
+	}
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		outline(stack, c)
+	}
+}
+
 func main() {
-	Test4()
+	Test6()
 }
