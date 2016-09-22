@@ -9,35 +9,42 @@ package main
 
 import (
 	"fmt"
-	"net/http"
-
 	"golang.org/x/net/html"
+	//"net/http"
+	"os"
 )
 
 func main() {
-	if resp, err := http.Get("http://www.baidu.com/"); err == nil {
-		if doc, err := html.Parse(resp.Body); err == nil {
-			//parseHtml(doc)
+	if file, err := os.Open("index.html"); err == nil {
+		if doc, err := html.Parse(file); err == nil {
 			for i, s := range visit(nil, doc) {
 				fmt.Println(i, s)
 			}
 		}
-		defer resp.Body.Close()
 	}
+	// if resp, err := http.Get("http://www.baidu.com/"); err == nil {
+	// 	if doc, err := html.Parse(resp.Body); err == nil {
+	// 		//parseHtml(doc)
+	// 		for i, s := range visit(nil, doc) {
+	// 			fmt.Println(i, s)
+	// 		}
+	// 	}
+	// 	defer resp.Body.Close()
+	// }
 }
 
 // visit appends to links each link found in n and returns the result.
 func visit(links []string, n *html.Node) []string {
 	if n == nil {
-		return nil
+		return links
 	}
-	if n.Type == html.ElementNode && n.Data == `a` {
-		// fmt.Println(n.Data)
-		for _, a := range n.Attr {
-			if a.Key == "href" {
-				links = append(links, a.Val)
-			}
-		}
+	if n.Type == html.ElementNode { //&& n.Data == `a` {
+		fmt.Println(n.Data)
+		// for _, a := range n.Attr {
+		// 	if a.Key == "href" {
+		// 		links = append(links, a.Val)
+		// 	}
+		// }
 	}
 	links = visit(links, n.NextSibling)
 	links = visit(links, n.FirstChild)

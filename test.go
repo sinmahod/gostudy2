@@ -240,14 +240,16 @@ func Test5(w http.ResponseWriter, r *http.Request) {
 func Test6() {
 	if file, err := os.Open("index.html"); err == nil {
 		if doc, err := html.Parse(file); err == nil {
-			visit2(nil, doc)
+			for i, s := range visit(nil, doc) {
+				fmt.Println(i, s)
+			}
 		}
 	}
 	//测试URL
 	// if resp, err := http.Get("http://www.baidu.com/"); err == nil {
 	// 	if doc, err := html.Parse(resp.Body); err == nil {
 	// 		//parseHtml(doc)
-	// 		for i, s := range visit2(nil, doc) {
+	// 		for i, s := range visit(nil, doc) {
 	// 			fmt.Println(i, s)
 	// 		}
 	// 	}
@@ -255,7 +257,8 @@ func Test6() {
 	// }
 }
 
-func visit2(links []string, n *html.Node) []string {
+func visit(links []string, n *html.Node) []string {
+
 	if n.Type == html.ElementNode {
 		fmt.Println(n.Data)
 		// for _, a := range n.Attr {
@@ -264,54 +267,15 @@ func visit2(links []string, n *html.Node) []string {
 		// 	}
 		// }
 	}
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		links = visit(links, c)
-	}
-	return links
-}
-
-func visit(links []string, n *html.Node) []string {
-
-	c := n
-	for c != nil {
-		if c.Type == html.ElementNode {
-			fmt.Println(n.Data)
-			// for _, a := range c.Attr {
-			// 	if a.Key == "href" {
-			// 		links = append(links, a.Val)
-			// 	}
-			// }
-		}
-		c = c.NextSibling
-	}
+	//c = c.NextSibling
 
 	if n.FirstChild != nil {
 		links = visit(links, n.FirstChild)
-	} else if n.NextSibling != nil {
+	}
+	if n.NextSibling != nil {
 		links = visit(links, n.NextSibling)
 	}
 
-	return links
-}
-
-func visit3(links []string, n *html.Node) []string {
-	if n == nil {
-		return nil
-	}
-	if n.Type == html.ElementNode {
-		fmt.Println(n.Data)
-		// for _, a := range n.Attr {
-		// 	if a.Key == "href" {
-		// 		links = append(links, a.Val)
-		// 	}
-		// }
-	}
-	visit(links, n.NextSibling)
-	visit(links, n.FirstChild)
-	// links = visit(links, c)
-	// for c := n.FirstChild; c != nil; c = c.NextSibling {
-	// 	links = visit(links, c)
-	// }
 	return links
 }
 
@@ -340,6 +304,59 @@ func outline(stack []string, n *html.Node) {
 	}
 }
 
+//练习5.2
+func Test7() {
+	if file, err := os.Open("index.html"); err == nil {
+		if doc, err := html.Parse(file); err == nil {
+			mp := make(map[string]int)
+			total(mp, doc)
+			//引用类型传递的时候都是传递的地址，所以这里不需要返回
+			for k, v := range mp {
+				fmt.Println(k, v)
+			}
+		}
+	}
+}
+
+func total(mp map[string]int, n *html.Node) {
+	if n.Type == html.ElementNode {
+		mp[n.Data]++
+	}
+
+	if n.FirstChild != nil {
+		total(mp, n.FirstChild)
+	}
+	if n.NextSibling != nil {
+		total(mp, n.NextSibling)
+	}
+}
+
+//练习5.3
+func Test8() {
+	if file, err := os.Open("index.html"); err == nil {
+		if doc, err := html.Parse(file); err == nil {
+			visit2(nil, doc)
+		}
+	}
+}
+
+func visit2(links []string, n *html.Node) []string {
+
+	if n.Type == html.ElementNode && n.Data == `a` {
+		fmt.Println(n.FirstChild.Data) //获取<a>标签</a>之间的内容
+	}
+	//c = c.NextSibling
+
+	if n.FirstChild != nil {
+		links = visit2(links, n.FirstChild)
+	}
+	if n.NextSibling != nil {
+		links = visit2(links, n.NextSibling)
+	}
+
+	return links
+}
+
 func main() {
-	Test6()
+	Test8()
 }
