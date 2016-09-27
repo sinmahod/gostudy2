@@ -357,6 +357,10 @@ func visit2(links []string, n *html.Node) []string {
 	return links
 }
 
+func Test9() {
+
+}
+
 func main() {
 	Test8()
 }
