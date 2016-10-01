@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"golang.org/x/net/html"
-	"log"
 	"net/http"
 	"sort"
 )
@@ -101,12 +100,22 @@ func forEachNode(n *html.Node, pre, post func(n *html.Node)) {
 	}
 }
 
+func Test1() {
+	var rmdirs []func()
+	str := []string{"123", "234", "345", "abc", "qwe"}
+	for _, d := range str {
+		d := d //至关重要，上面的range是依次给d赋值，但是d始终是同一个内存地址，这句的目的就是重新生成一个内存地址存放d
+		fmt.Println(1, d)
+		rmdirs = append(rmdirs, func() { //这里的d引用的是内存地址，如果没有上面的d := d那么这里引用的内存地址就是同一个内存地址，循环执行完毕的时候内存地址对应的值是qwe，并且每次被追加1
+			d += "1"
+			fmt.Println(d)
+		})
+	}
+	for _, rmdir := range rmdirs {
+		rmdir()
+	}
+}
+
 func main() {
-	str, err := Extract("http://www.baidu.com/")
-	if err != nil {
-		log.Fatal("%s", err)
-	}
-	for _, s := range str {
-		fmt.Printf("%s\n", s)
-	}
+	Test1()
 }
