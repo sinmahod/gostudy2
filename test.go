@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"golang.org/x/net/html"
 	"net/http"
+	"os"
 	"sort"
 )
 
@@ -116,6 +118,78 @@ func Test1() {
 	}
 }
 
+//练习可变参数
+func Test2() {
+	vallist(1, 2, 3, 4, 5)
+	cs := []int{1, 2, 3, 4, 5}
+	vallist(cs...)
+	fmt.Printf("%T", vallist)
+}
+
+func vallist(cs ...int) {
+	fmt.Println(len(cs))
+	fmt.Println(cap(cs))
+	fmt.Printf("%T\n", cs)
+	for _, c := range cs {
+		fmt.Println(c)
+	}
+}
+
+//练习5.15
+func Test3() {
+	cs := []int{234, 45, 12, 435, 231}
+	if err := min(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+	}
+	if err := max(cs...); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+	}
+	fmt.Println(cs)
+}
+
+func min(cs ...int) error {
+	if len(cs) == 0 {
+		return errors.New(fmt.Sprintf("Error：cs length is 0"))
+	}
+	sort.Ints(cs)
+	fmt.Println(cs[0])
+	return nil
+}
+
+func max(cs ...int) error {
+	if len(cs) == 0 {
+		return errors.New(fmt.Sprintf("Error：cs length is 0"))
+	}
+	sort.Ints(cs)
+	fmt.Println(cs[len(cs)-1])
+	return nil
+}
+
+//练习5.16
+func Test4() {
+	fmt.Printf("%s\n", stringsort(",", "aaa", "bbb", "ccc"))
+}
+
+func stringsort(join string, strs ...string) string {
+	var s string
+	i := len(strs)
+	idx := 1
+	if i > 0 {
+		s += strs[idx]
+	}
+	var sfunc func()
+	sfunc = func() {
+		s += join + strs[idx]
+		idx++
+		if idx != i {
+			sfunc()
+		}
+	}
+	sfunc()
+	return s
+}
+
 func main() {
-	Test1()
+	Test4()
+
 }
