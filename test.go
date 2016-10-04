@@ -4,9 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"golang.org/x/net/html"
+	"io"
+	"log"
 	"net/http"
 	"os"
+	"path"
 	"sort"
+	"time"
 )
 
 func squares() func() int {
@@ -189,7 +193,64 @@ func stringsort(join string, strs ...string) string {
 	return s
 }
 
-func main() {
-	Test4()
+//练习defer语句，结论：defer最后执行强行中断不执行。
+func Test5() {
+	fmt.Println(1)
+	defer fmt.Println(2)
+	fmt.Println(3)
+	defer fmt.Println(22)
+	//os.Exit(0)
+}
 
+func bigSlowOperation() {
+	defer trace("bigSlowOperation")() // don't forget the
+	// ...lots of work…
+	time.Sleep(10 * time.Second) // simulate slow
+}
+func trace(msg string) func() {
+	start := time.Now()
+	log.Printf("enter %s", msg)
+	return func() {
+		log.Printf("exit %s (%s)", msg, time.Since(start))
+	}
+}
+
+func double(x int) (result int) {
+	defer func() {
+		fmt.Printf("double(%d) = %d\n", x, result)
+	}()
+	return x + x
+}
+
+//执行顺序：result := double(x) ; defer ; return result  先得到result在defer计算，最后才返回，所以得到的值为 x + x + x
+func triple(x int) (result int) {
+	defer func() { result += x }()
+	return double(x)
+}
+
+//测试bath.Base函数
+func Test6() {
+	resp, err := http.Get("http://60.205.164.3/test/qwe")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+	str := path.Base(resp.Request.URL.Path)
+	fmt.Println(str)
+	f, err := os.Create(str)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = io.Copy(f, resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = f.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func main() {
+	Test6()
 }
