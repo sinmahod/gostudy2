@@ -251,6 +251,23 @@ func Test6() {
 	}
 }
 
+//测试panic和recover , 练习5.19
+func Test7() {
+	// if err := getErr(); err != nil {
+	// 	fmt.Printf("%s\n", err) //Error!!!,asdsd
+	// }
+	defer func() {
+		if p := recover(); p != nil {
+			fmt.Printf("%s,%s", "Error!!!", p)
+		}
+	}()
+	getErr()
+}
+
+func getErr() {
+	panic("asdsd")
+}
+
 func main() {
-	Test6()
+	Test7()
 }
