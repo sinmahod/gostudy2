@@ -1,395 +1,274 @@
 package main
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
-	"html/template"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
-	"strings"
+	"path"
+	"sort"
 	"time"
 
 	"golang.org/x/net/html"
 )
 
+func squares() func() int {
+	var x int
+	return func() int {
+		x++
+		return x * x
+	}
+}
+
+// prereqs记录了每个课程的前置课程
+var prereqs = map[string][]string{
+	"algorithms": {"data structures"},
+	"calculus":   {"linear algebra"},
+	"compilers": {
+		"data structures",
+		"formal languages",
+		"computer organization",
+	},
+	"data structures":       {"discrete math"},
+	"databases":             {"data structures"},
+	"discrete math":         {"intro to programming"},
+	"formal languages":      {"discrete math"},
+	"networks":              {"operating systems"},
+	"operating systems":     {"data structures", "computer organization"},
+	"programming languages": {"data structures", "computer organization"},
+}
+
+func topoSort(m map[string][]string) []string {
+	var order []string
+	seen := make(map[string]bool)
+	var visitAll func(items []string)
+	visitAll = func(items []string) {
+		for _, item := range items {
+			if !seen[item] {
+				seen[item] = true
+				visitAll(m[item])
+				order = append(order, item)
+			}
+		}
+	}
+	var keys []string
+	for key := range m {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	visitAll(keys)
+	return order
+}
+
+func Extract(url string) ([]string, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		return nil, fmt.Errorf("getting %s: %s", url, resp.Status)
+	}
+	doc, err := html.Parse(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		return nil, fmt.Errorf("parsing %s as HTML: %v", url, err)
+	}
+	var links []string
+	visitNode := func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "a" {
+			for _, a := range n.Attr {
+				if a.Key != "href" {
+					continue
+				}
+				link, err := resp.Request.URL.Parse(a.Val) //以URL的形式返回
+				if err != nil {
+					continue // ignore bad URLs
+				}
+				links = append(links, link.String())
+			}
+		}
+	}
+	forEachNode(doc, visitNode, nil)
+	return links, nil
+}
+
+func forEachNode(n *html.Node, pre, post func(n *html.Node)) {
+	if pre != nil {
+		pre(n)
+	}
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		forEachNode(c, pre, post)
+	}
+	if post != nil {
+		post(n)
+	}
+}
+
 func Test1() {
-	values := []int{9, 3, 4, 1, 2, 34, 7, 212}
-	Sort(values)
-	fmt.Println(values)
-}
-
-//测试结构体，实现排序功能，从大到小
-type tree struct {
-	value int
-	max   *tree
-	min   *tree
-}
-
-func Sort(values []int) {
-	var t *tree
-	for _, v := range values {
-		t = add(t, v)
+	var rmdirs []func()
+	str := []string{"123", "234", "345", "abc", "qwe"}
+	for _, d := range str {
+		d := d //至关重要，上面的range是依次给d赋值，但是d始终是同一个内存地址，这句的目的就是重新生成一个内存地址存放d
+		fmt.Println(1, d)
+		rmdirs = append(rmdirs, func() { //这里的d引用的是内存地址，如果没有上面的d := d那么这里引用的内存地址就是同一个内存地址，循环执行完毕的时候内存地址对应的值是qwe，并且每次被追加1
+			d += "1"
+			fmt.Println(d)
+		})
 	}
-	getValues(t, values[:0])
-}
-
-func getValues(t *tree, values []int) []int {
-	/*
-		      1
-		     /  \
-		   3    2
-		  /  \
-		9    4    7
-		  \       /
-		     34
-		     \
-		     212
-	*/
-	if t != nil {
-		fmt.Println(t.value)
-		values = getValues(t.max, values)
-		values = append(values, t.value)
-		values = getValues(t.min, values)
+	for _, rmdir := range rmdirs {
+		rmdir()
 	}
-
-	return values
 }
 
-func add(t *tree, v int) *tree {
-	if t == nil {
-		t = new(tree)
-		t.value = v
-		return t
-	}
-	if t.value > v {
-		t.min = add(t.min, v)
-	} else {
-		t.max = add(t.max, v)
-	}
-	return t
-}
-
-type Ponit struct {
-	X, Y int
-}
-
-type Circle struct {
-	Ponit
-	Radius int
-}
-
-type Wheel struct {
-	Circle
-	Spokes int
-}
-
+//练习可变参数
 func Test2() {
-	var w Wheel
-	w = Wheel{Circle: Circle{Ponit: Ponit{X: 9, Y: 8}, Radius: 7}, Spokes: 6}
-	fmt.Printf("%#v\n", w)
+	vallist(1, 2, 3, 4, 5)
+	cs := []int{1, 2, 3, 4, 5}
+	vallist(cs...)
+	fmt.Printf("%T", vallist)
 }
 
-//测试JSON
-type Data struct {
-	//变量名大写才能导出
-	Content string   `json:"content"` //类似别名
-	Index   int      `json:"index"`
-	Key     []string `json:"key,omitempty"` //omitempty选项表示为空值是不输出
+func vallist(cs ...int) {
+	fmt.Println(len(cs))
+	fmt.Println(cap(cs))
+	fmt.Printf("%T\n", cs)
+	for _, c := range cs {
+		fmt.Println(c)
+	}
 }
 
+//练习5.15
 func Test3() {
-	var data = []Data{{Content: "这是一个json练习", Index: 999, Key: []string{"一", "二", "三"}}, {Content: "这是一个json练习", Index: 999}}
-
-	//紧凑化json
-	if json, err := json.Marshal(data); err != nil {
-		log.Fatalf("%s\n", err)
-	} else {
-		fmt.Printf("%s\n", json)
+	cs := []int{234, 45, 12, 435, 231}
+	if err := min(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
 	}
-	//格式化json，前缀与每一行的缩进
-	if json, err := json.MarshalIndent(data, "", "	"); err != nil {
-		log.Fatalf("%s\n", err)
-	} else {
-		fmt.Printf("%s\n", json)
+	if err := max(cs...); err != nil {
+		fmt.Fprintln(os.Stderr, err)
 	}
+	fmt.Println(cs)
 }
 
-type IssuesSearchResult struct {
-	Total_count        int    `json:"total_count"`
-	Incomplete_results bool   `json:"incomplete_results"`
-	Sssdf              string `json:"sssdf"`
+func min(cs ...int) error {
+	if len(cs) == 0 {
+		return errors.New(fmt.Sprintf("Error：cs length is 0"))
+	}
+	sort.Ints(cs)
+	fmt.Println(cs[0])
+	return nil
 }
 
-//测试json解码
+func max(cs ...int) error {
+	if len(cs) == 0 {
+		return errors.New(fmt.Sprintf("Error：cs length is 0"))
+	}
+	sort.Ints(cs)
+	fmt.Println(cs[len(cs)-1])
+	return nil
+}
+
+//练习5.16
 func Test4() {
+	fmt.Printf("%s\n", stringsort(",", "aaa", "bbb", "ccc"))
+}
 
-	geturl := "https://api.github.com/search/issues"
-	str := os.Args[1:]                           //repo:golang/go is:open json decoder
-	q := url.QueryEscape(strings.Join(str, " ")) //decode参数
-	resp, err := http.Get(geturl + "?q=" + q)
-	if err != nil { //https://api.github.com/search/issues?q=repo%3Agolang%2Fgo+is%3Aopen+json+decoder
-		log.Fatalf("%s\n", err)
+func stringsort(join string, strs ...string) string {
+	var s string
+	i := len(strs)
+	idx := 1
+	if i > 0 {
+		s += strs[idx]
 	}
-	if resp.StatusCode != http.StatusOK { //200
-		resp.Body.Close()
-		fmt.Errorf("search query failed: %s", resp.Status)
-		return
-	}
-
-	//打印内容
-	if body, err := ioutil.ReadAll(resp.Body); err != nil {
-		fmt.Errorf("%s", err)
-		return
-	} else {
-		var v struct {
-			Total_count int `json:"total_count"`
+	var sfunc func()
+	sfunc = func() {
+		s += join + strs[idx]
+		idx++
+		if idx != i {
+			sfunc()
 		}
-		if err := json.Unmarshal(body, &v); err != nil {
-			fmt.Errorf("%s", err)
-		}
-		fmt.Println(v)
 	}
+	sfunc()
+	return s
+}
 
-	var result IssuesSearchResult
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		resp.Body.Close()
-		fmt.Errorf("search query failed: %s", err)
-		return
+//练习defer语句，结论：defer最后执行强行中断不执行。
+func Test5() {
+	fmt.Println(1)
+	defer fmt.Println(2)
+	fmt.Println(3)
+	defer fmt.Println(22)
+	//os.Exit(0)
+}
+
+func bigSlowOperation() {
+	defer trace("bigSlowOperation")() // don't forget the
+	// ...lots of work…
+	time.Sleep(10 * time.Second) // simulate slow
+}
+func trace(msg string) func() {
+	start := time.Now()
+	log.Printf("enter %s", msg)
+	return func() {
+		log.Printf("exit %s (%s)", msg, time.Since(start))
+	}
+}
+
+func double(x int) (result int) {
+	defer func() {
+		fmt.Printf("double(%d) = %d\n", x, result)
+	}()
+	return x + x
+}
+
+//执行顺序：result := double(x) ; defer ; return result  先得到result在defer计算，最后才返回，所以得到的值为 x + x + x
+func triple(x int) (result int) {
+	defer func() { result += x }()
+	return double(x)
+}
+
+//测试bath.Base函数
+func Test6() {
+	resp, err := http.Get("http://60.205.164.3/test/qwe")
+	if err != nil {
+		log.Fatal(err)
 	}
 	defer resp.Body.Close()
-
-	fmt.Printf("%d\n", result.Total_count)
-	fmt.Printf("%b\n", result.Incomplete_results)
-	fmt.Printf("%s\n", result.Sssdf)
-	fmt.Println(result)
-
-	//for _, item := range result.Items {
-	//	fmt.Printf("#%-5d %9.9s %.55s\n", item.Number, item.User.Login, item.Title)
-	//}
-}
-
-//测试模板
-type Html struct {
-	TotalCount int
-	Items      []Issc
-}
-
-type Issc struct {
-	Number    int
-	User      *User
-	Title     string
-	CreatedAt time.Time
-	Test      template.HTML
-}
-
-type User struct {
-	Login bool
-}
-
-const templ = `<html><title>测试</title><body>{{.TotalCount}} issues:
-	{{range .Items}}----------------------------------------
-	Number: {{.Number}}
-	<h2>User:   {{.User.Login}}</h2>
-	<hr/>Title:  {{.Title | printf "%.64s"}}
-	<h1>Age:    {{.CreatedAt | daysAgo}} days</h1>
-	<h1>Test:    {{.Test}} </h1>
-	{{end}}</body></html>`
-
-func daysAgo(t time.Time) int {
-	return int(time.Since(t).Hours() / 24)
-}
-
-func Test5(w http.ResponseWriter, r *http.Request) {
-	text := template.Must(template.New("test").
-		Funcs(template.FuncMap{"daysAgo": daysAgo}). //注册函数
-		Parse(templ))                                //放入模板
-
-	t1, _ := time.Parse("2016-08-08 20:47:19", "2015-06-06 20:47:19")
-	t2, _ := time.Parse("2016-06-06 20:47:19", "2015-06-06 20:47:19")
-	isr := Html{TotalCount: 10, Items: []Issc{
-		{
-			Number: 5,
-			User: &User{
-				Login: false,
-			},
-			Title:     "<b>test1</b>",
-			CreatedAt: t1,
-			Test:      "<b>test1<b>",
-		}, {
-			Number: 6,
-			User: &User{
-				Login: true,
-			},
-			Title:     "test2",
-			CreatedAt: t2,
-			Test:      "<b>test2<b>",
-		},
-	},
+	str := path.Base(resp.Request.URL.Path)
+	fmt.Println(str)
+	f, err := os.Create(str)
+	if err != nil {
+		log.Fatal(err)
 	}
-	text.Execute(w, isr)
-
-	//method main
-	//http.HandleFunc("/", Test5)
-	//http.ListenAndServe("localhost:8080", nil)
-}
-
-//遍历所有A标签打印所有链接
-func Test6() {
-	if file, err := os.Open("index.html"); err == nil {
-		if doc, err := html.Parse(file); err == nil {
-			visit(nil, doc, 1)
-		}
+	_, err = io.Copy(f, resp.Body)
+	if err != nil {
+		log.Fatal(err)
 	}
-	//测试URL
-	// if resp, err := http.Get("http://www.baidu.com/"); err == nil {
-	// 	if doc, err := html.Parse(resp.Body); err == nil {
-	// 		//parseHtml(doc)
-	// 		for i, s := range visit(nil, doc) {
-	// 			fmt.Println(i, s)
-	// 		}
-	// 	}
-	// 	defer resp.Body.Close()
-	// }
-}
-
-func visit(links []string, n *html.Node, i int) []string {
-
-	if n.Type == html.ElementNode {
-		fmt.Printf("%*s<%s>\n", i, "", n.Data)
-		// for _, a := range n.Attr {
-		// 	if a.Key == "href" {
-		// 		links = append(links, a.Val)
-		// 	}
-		// }
-	}
-	//c = c.NextSibling
-
-	if n.FirstChild != nil {
-		links = visit(links, n.FirstChild, i+1)
-	}
-	if n.NextSibling != nil {
-		links = visit(links, n.NextSibling, i+1)
-	}
-	if n.Type == html.ElementNode {
-		fmt.Printf("%*s<%s>\n", i, "", n.Data)
-		// for _, a := range n.Attr {
-		// 	if a.Key == "href" {
-		// 		links = append(links, a.Val)
-		// 	}
-		// }
-	}
-
-	return links
-}
-
-func parseHtml(n *html.Node) {
-	if n.Type == html.ElementNode {
-		if n.Data == `a` {
-			for _, a := range n.Attr {
-				if a.Key == `href` && strings.HasPrefix(a.Val, "http:") {
-					fmt.Println("+", a.Val, "+")
-				}
-			}
-		}
-	}
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		parseHtml(c)
+	err = f.Close()
+	if err != nil {
+		log.Fatal(err)
 	}
 }
 
-func outline(stack []string, n *html.Node) {
-	if n.Type == html.ElementNode {
-		stack = append(stack, n.Data) // push tag
-		fmt.Println(stack)
-	}
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		outline(stack, c)
-	}
-}
-
-//练习5.2
+//测试panic和recover , 练习5.19
 func Test7() {
-	if file, err := os.Open("index.html"); err == nil {
-		if doc, err := html.Parse(file); err == nil {
-			mp := make(map[string]int)
-			total(mp, doc)
-			//引用类型传递的时候都是传递的地址，所以这里不需要返回
-			for k, v := range mp {
-				fmt.Println(k, v)
-			}
+	// if err := getErr(); err != nil {
+	// 	fmt.Printf("%s\n", err) //Error!!!,asdsd
+	// }
+	defer func() {
+		if p := recover(); p != nil {
+			fmt.Printf("%s,%s", "Error!!!", p)
 		}
-	}
+	}()
+	getErr()
 }
 
-func total(mp map[string]int, n *html.Node) {
-	if n.Type == html.ElementNode {
-		mp[n.Data]++
-	}
-
-	if n.FirstChild != nil {
-		total(mp, n.FirstChild)
-	}
-	if n.NextSibling != nil {
-		total(mp, n.NextSibling)
-	}
-}
-
-//练习5.3
-func Test8() {
-	if file, err := os.Open("index.html"); err == nil {
-		if doc, err := html.Parse(file); err == nil {
-			visit2(nil, doc)
-		}
-	}
-}
-
-func visit2(links []string, n *html.Node) []string {
-
-	if n.Type == html.ElementNode && n.Data == `a` {
-		fmt.Println(n.FirstChild.Data) //获取<a>标签</a>之间的内容
-	}
-	//c = c.NextSibling
-
-	if n.FirstChild != nil {
-		links = visit2(links, n.FirstChild)
-	}
-	if n.NextSibling != nil {
-		links = visit2(links, n.NextSibling)
-	}
-
-	return links
-}
-
-//练习延迟执行
-func Test9() {
-	for i := 0; i < 10; i++ {
-		fmt.Println(i)
-		time.Sleep(time.Second)
-	}
-}
-
-//练习各种输出
-func Test10() {
-	s := "Test10"
-	log.Print(s)
-	fmt.Sprintf("%s", s) //主要是格式化一个字符，需要其他变量接收参数
-	log.Fatalf("%s", s)  //输出完成后会终止程序
-	fmt.Sprint(s)
-}
-
-//练习strings.Map()函数用法
-func Test11() {
-	s := "Test11"
-	fmt.Println(strings.Map(pl, s))
-}
-
-func pl(s rune) rune {
-	return s + 1
+func getErr() {
+	panic("asdsd")
 }
 
 func main() {
-	Test6()
+	Test7()
 }
