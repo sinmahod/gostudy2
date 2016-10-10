@@ -240,9 +240,7 @@ func Test5(w http.ResponseWriter, r *http.Request) {
 func Test6() {
 	if file, err := os.Open("index.html"); err == nil {
 		if doc, err := html.Parse(file); err == nil {
-			for i, s := range visit(nil, doc) {
-				fmt.Println(i, s)
-			}
+			visit(nil, doc, 1)
 		}
 	}
 	//测试URL
@@ -257,10 +255,10 @@ func Test6() {
 	// }
 }
 
-func visit(links []string, n *html.Node) []string {
+func visit(links []string, n *html.Node, i int) []string {
 
 	if n.Type == html.ElementNode {
-		fmt.Println(n.Data)
+		fmt.Printf("%*s<%s>\n", i, "", n.Data)
 		// for _, a := range n.Attr {
 		// 	if a.Key == "href" {
 		// 		links = append(links, a.Val)
@@ -270,10 +268,18 @@ func visit(links []string, n *html.Node) []string {
 	//c = c.NextSibling
 
 	if n.FirstChild != nil {
-		links = visit(links, n.FirstChild)
+		links = visit(links, n.FirstChild, i+1)
 	}
 	if n.NextSibling != nil {
-		links = visit(links, n.NextSibling)
+		links = visit(links, n.NextSibling, i+1)
+	}
+	if n.Type == html.ElementNode {
+		fmt.Printf("%*s<%s>\n", i, "", n.Data)
+		// for _, a := range n.Attr {
+		// 	if a.Key == "href" {
+		// 		links = append(links, a.Val)
+		// 	}
+		// }
 	}
 
 	return links
@@ -357,10 +363,33 @@ func visit2(links []string, n *html.Node) []string {
 	return links
 }
 
+//练习延迟执行
 func Test9() {
+	for i := 0; i < 10; i++ {
+		fmt.Println(i)
+		time.Sleep(time.Second)
+	}
+}
 
+//练习各种输出
+func Test10() {
+	s := "Test10"
+	log.Print(s)
+	fmt.Sprintf("%s", s) //主要是格式化一个字符，需要其他变量接收参数
+	log.Fatalf("%s", s)  //输出完成后会终止程序
+	fmt.Sprint(s)
+}
+
+//练习strings.Map()函数用法
+func Test11() {
+	s := "Test11"
+	fmt.Println(strings.Map(pl, s))
+}
+
+func pl(s rune) rune {
+	return s + 1
 }
 
 func main() {
-	Test8()
+	Test6()
 }
