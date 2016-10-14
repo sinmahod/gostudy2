@@ -120,6 +120,21 @@ func Test5() {
 	fmt.Println(32 << 1)
 }
 
+//测试接口
+type MyWrite struct {
+}
+
+func (mw *MyWrite) Write(p []byte) (n int, err error) {
+	fmt.Println(123)
+	fmt.Println(p)
+	return 0, nil
+}
+
+func Test6() {
+	var s MyWrite
+	fmt.Fprintln(&s, "qwe", "asd")
+}
+
 func main() {
-	Test5()
+	Test6()
 }
